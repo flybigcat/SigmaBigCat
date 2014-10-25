@@ -1,0 +1,64 @@
+1. Design
+ a) Your Design
+ b) The reason why you chose that design
+ c) Explanation of the design
+ 
+2. Implementation
+ a) Implementation detail - how you implemented your design through your code
+ b) Explanation of additional classes, variables, methods that you used or implemented
+ 
+
+Project1 includes a paged file management system(pfm) and few operations of a record-based file manager(rbfm), in which pfm is used to provide facilities for a higher-level client components to perform file I/O in terms of pages while rbfm is going to be built on top of the basic paged file system.
+
+Depending on the requirements of pfm and rbfm, a design of project 1 is created and implemented as below.
+
+The interface of project 1 consists of three classes: the PagedFileManager, the FileHandle, and the RecordBasedFileManager classes. 
+
+Here, PagedFileManager and FileHandle are designed in the same file “pfm.h” and implemented in the “pfm.cc” because these two are used to manage file at “page”level. 
+The PagedFileManager class handles the creation, deletion, opening, and closing of paged files, in which the last two functions’ input parameter both have “fileHandle” object. This is because that the FileHandle class provides access to the pages of an open file and PagedFileManager can manage this paged file through FileHandle.
+
+For FileHandle,since one fileHandle is “linked” to exactly one file, four “private” variables, hFile, hFileName, numberOfPages, isFile are created as “properties” of this file. Which can be easily understood for the first three, the last one “isFile” is used to check if this fileHandle object has been “linked” to a specific file or not.Besides, three additional “public” functions; hasFile(), getFile() and getFileName() are used to get access of these variables. 
+
+In Project1, the RecordBasedFileManager class handles record-based operations such as inserting, reading and printing record which is in “record” level, so a separate interface “rbfm.h” and its related implementation file “rbfm.cc” is designed for it. It also have facilities that help client to mange file like: creatFile, destroyFile, openFile and closeFile, which can be realized through PagedFileManager talked before and fileHandle. So a variable “ PagedFileManager * pfm” is used here.
+
+For RecordBasedFileManager in record management part, three functions insertRecord, readRecord and printRecord are included in project 1. First of all, a variable length record page format is designed.The reason is that this designed is more flexible compared to fixed-length records page format and the RID hasn’t to be changed within page when a record is moved.
+
+In order to maintain this “format”, a page header/slot directory is used for each page with a (record offset, record length) pair per slot. Besides, to keep track of free space, a pointer called “free space pointer” is used at the end of each page, which means the size from the beginning of the file to the beginning of “this” page’s free space.
+
+To implement this design, 
+
+//slot directory: slot cell
+typedef struct  {
+	unsigned offset;
+	unsigned length;
+} SlotCell;
+
+is used to manage each pair of slot.
+
+Also, a public function 
+“int getDataLength(const vector<Attribute> &recordDescriptor, const void *data);” 
+is used here to get exactly size of data depending on recordDescriptor.
+
+In InsertRecord function, there are three cases
+1. the file is empty
+2. the file is not empty and there is a page (number i) has enough free space for insert data
+3. the file is not empty and there doesn’t exist a page that can storage this data.
+
+for case 2, read this page (i) into buffer and update all the information like insert data, update free space pointer, update total slots number and add one more pair of slot cell, then write this “dirty” page back to disk by fileHandle. At the same time, rid is got by page number i and slot number = total slots number + 1.
+for case 1 and 3, a new page is created with slot directory initialization and appended to the file. The procedure is pretty much the same except “update” free space point and total slot number, here create a new fsp and total slot number of this new page = 1, which is the insert data.
+
+In readRecord function, there are mainly two cases.
+1. record doesn’t exist.
+   This may because a).rid.pageNum not exit in the file. b). rid.slotNum not exit. c) pageNum and slotNum both exit but this record is deleted(offset = -1)
+
+2. record does exist
+    This part is simple, depending on rid.slotNum, get this record offset and get the data. Besides, due to recordDescriptor, the data size can be computed (here a function is used), and copy the data to *data.
+
+In printRecord function, depending on different record type; int, real and char. the representation of all the fields of this record can be got and treated differently.
+
+This is the design and implementation of project 1. And more details are listed as comment in the code, please feel free to check it. Thank you.
+   
+ 
+
+ 
+ 
