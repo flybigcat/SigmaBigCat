@@ -13,7 +13,7 @@ RecordBasedFileManager* RecordBasedFileManager::instance()
 
 RecordBasedFileManager::RecordBasedFileManager()
 {
-	pfm = PagedFileManager::instance();
+    pfm = PagedFileManager::instance();
 }
 
 RecordBasedFileManager::~RecordBasedFileManager()
@@ -26,7 +26,7 @@ RecordBasedFileManager::~RecordBasedFileManager()
  * */
 RC RecordBasedFileManager::createFile(const string &fileName)
 {
-	return pfm->createFile(fileName.c_str());
+    return pfm->createFile(fileName.c_str());
 }
 
 /* This method destroys the record-based file whose name is fileName.
@@ -71,275 +71,278 @@ RC RecordBasedFileManager::closeFile(FileHandle &fileHandle)
  * */
 RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const void *data, RID &rid)
 {
-	int dataLength = getDataLength(recordDescriptor, data);
-	int numberOfRecordElements = getNumberOfRecordElements(recordDescriptor, data);
-	int sizeOfRecordHeader = (1 + numberOfRecordElements) * sizeof(int);
+    int dataLength = getDataLength(recordDescriptor, data);
+    int numberOfRecordElements = getNumberOfRecordElements(recordDescriptor, data);
+    int sizeOfRecordHeader = (1 + numberOfRecordElements) * sizeof(int);
 
-	void * buffer = malloc(PAGE_SIZE);
+    void * buffer = malloc(PAGE_SIZE);
 
-	//if the file has enough free space for dataLength
-	//read this page into buffer and
-	//organize this page: insert data, rewrite free space pointer, increase slot number, put slotcell inside
+    //if the file has enough free space for dataLength
+    //read this page into buffer and
+    //organize this page: insert data, rewrite free space pointer, increase slot number, put slotcell inside
 
-	if(fileHandle.getNumberOfPages() > 0){
-		//find a page i has enough free space
-		for(int i = 0; i < fileHandle.getNumberOfPages(); i++){
-			//read into buffer
-			if(fileHandle.readPage(i, buffer)!=0)
-			{
-				free(buffer);
-				return -1;
-			}
+    if(fileHandle.getNumberOfPages() > 0){
+        //find a page i has enough free space
+        for(int i = 0; i < fileHandle.getNumberOfPages(); i++){
+            //read into buffer
+            if(fileHandle.readPage(i, buffer)!=0)
+            {
+                free(buffer);
+                return -1;
+            }
 
-			// free space pointer is the physical address offset from the very beginning of the file to the "free space"
-			int freeSpacePointer;
-			freeSpacePointer = * (int * )((char * )buffer+PAGE_SIZE-sizeof(int));
+            // free space pointer is the physical address offset from the very beginning of the file to the "free space"
+            int freeSpacePointer;
+            freeSpacePointer = * (int * )((char * )buffer+PAGE_SIZE-sizeof(int));
 
-			unsigned totalNumberOfSlots;
-			totalNumberOfSlots = * (int *)((char *)buffer + PAGE_SIZE-2*sizeof(int));
+            unsigned totalNumberOfSlots;
+            totalNumberOfSlots = * (int *)((char *)buffer + PAGE_SIZE-2*sizeof(int));
 
-			int freeSpace = PAGE_SIZE - freeSpacePointer - 2 * sizeof(int) - 2 * totalNumberOfSlots * sizeof(int);
+            int freeSpace = PAGE_SIZE - freeSpacePointer - 2 * sizeof(int) - 2 * totalNumberOfSlots * sizeof(int);
 
-			//enough free space
-			if(freeSpace >= (dataLength + 2 * sizeof(int) + sizeOfRecordHeader))
-			{
-				//insert header
-				void * recordHeader=malloc(PAGE_SIZE) ;
-				recordHeaderMaker(recordDescriptor, data, recordHeader);
-				memcpy((char *)buffer +freeSpacePointer, recordHeader, sizeOfRecordHeader);
-				//insert data
-				//void * memcpy ( void * destination, const void * source, size_t num );
-				memcpy( (char *)buffer +freeSpacePointer+sizeOfRecordHeader, data, dataLength);
+            //check if free space enough
+            if(freeSpace >= (dataLength + 2 * sizeof(int) + sizeOfRecordHeader))
+            {
+                //insert header
+                void * recordHeader=malloc(PAGE_SIZE) ;
+                recordHeaderMaker(recordDescriptor, data, recordHeader);
+                memcpy((char *)buffer +freeSpacePointer, recordHeader, sizeOfRecordHeader);
+                //insert data
+                //void * memcpy ( void * destination, const void * source, size_t num );
+                memcpy( (char *)buffer +freeSpacePointer+sizeOfRecordHeader, data, dataLength);
 
-				//increase total slot number
-				totalNumberOfSlots +=1;
-				memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int), &totalNumberOfSlots, sizeof(int));
+                //increase total slot number
+                totalNumberOfSlots +=1;
+                memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int), &totalNumberOfSlots, sizeof(int));
 
-				//put slot cell into
-				SlotCell sc;
-				sc.length = dataLength;
-			    sc.offset = freeSpacePointer;
-				memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*2*sizeof(int), &sc, 2*sizeof(int));
+                //put slot cell into
+                SlotCell sc;
+                sc.length = dataLength;
+                sc.offset = freeSpacePointer;
+                memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*2*sizeof(int), &sc, 2*sizeof(int));
 
-				//move fsp
-				freeSpacePointer += dataLength + sizeOfRecordHeader;
-				memcpy((char *)buffer + PAGE_SIZE - sizeof(int), &freeSpacePointer, sizeof(int));
+                //move fsp
+                freeSpacePointer += dataLength + sizeOfRecordHeader;
+                memcpy((char *)buffer + PAGE_SIZE - sizeof(int), &freeSpacePointer, sizeof(int));
 
 
-				//write "dirty" page back to disk
-				if(fileHandle.writePage(i, buffer) != 0)
-				{
-					free(buffer);
-					return -1;
-				}
+                //write "dirty" page back to disk
+                if(fileHandle.writePage(i, buffer) != 0)
+                {
+                    free(buffer);
+                    return -1;
+                }
 
-				//get RID
-				rid.pageNum = i;
-				rid.slotNum = totalNumberOfSlots;
+                //get RID
+                rid.pageNum = i;
+                rid.slotNum = totalNumberOfSlots;
 
-				//all done
-				free(buffer);
-				return 0;
-			}//end of if
+                //all done
+                free(buffer);
+                return 0;
+            }//end of if
 
-			else break;
-		}//end of for
-	}//end of if
+            else break;
+        }//end of for
+    }//end of if
 
-	//if fileHandle's file is empty
-	//or all the page don't have enough free space
-	//append a new page
+    //if fileHandle's file is empty
+    //or all the page don't have enough free space
+    //append a new page
 
-	//insert record header
+    //insert record header
 
-	void * recordHeader=malloc(PAGE_SIZE) ;
-	recordHeaderMaker(recordDescriptor, data, recordHeader);
-	memcpy((char *)buffer, recordHeader, sizeOfRecordHeader);
+    void * recordHeader=malloc(PAGE_SIZE) ;
+    recordHeaderMaker(recordDescriptor, data, recordHeader);
+    memcpy((char *)buffer, recordHeader, sizeOfRecordHeader);
 
-	//insert data
-	memcpy((char *)buffer + sizeOfRecordHeader, data, dataLength);
+    //insert data
+    memcpy((char *)buffer + sizeOfRecordHeader, data, dataLength);
 
-	//initialization of header/slot directory
-	int freeSpacePointer;
-	freeSpacePointer = dataLength + sizeOfRecordHeader;
-	memcpy((char *)buffer + PAGE_SIZE - sizeof(int), &freeSpacePointer, sizeof(int));
+    //initialization of header/slot directory
+    int freeSpacePointer;
+    freeSpacePointer = dataLength + sizeOfRecordHeader;
+    memcpy((char *)buffer + PAGE_SIZE - sizeof(int), &freeSpacePointer, sizeof(int));
 
-	int totalNumberOfSlots =1;
-	memcpy((char *)buffer + PAGE_SIZE -2*sizeof(int), &totalNumberOfSlots, sizeof(int));
+    int totalNumberOfSlots =1;
+    memcpy((char *)buffer + PAGE_SIZE -2*sizeof(int), &totalNumberOfSlots, sizeof(int));
 
-	SlotCell sc;
-	sc.length = dataLength;
-	sc.offset = 0;
-	memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*2*sizeof(int), &sc, 2*sizeof(int));
+    SlotCell sc;
+    sc.length = dataLength;
+    sc.offset = 0;
+    memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*2*sizeof(int), &sc, 2*sizeof(int));
 
-	//write "dirty"new  page append to file back to disk
-	if(fileHandle.appendPage(buffer) != 0 )
-	{
-		free(buffer);
-		return -1;
-	}
+    //write "dirty"new  page append to file back to disk
+    if(fileHandle.appendPage(buffer) != 0 )
+    {
+        free(buffer);
+        return -1;
+    }
 
-	rid.pageNum = fileHandle.getNumberOfPages()-1;
-	rid.slotNum = 1;
+    rid.pageNum = fileHandle.getNumberOfPages()-1;
+    rid.slotNum = 1;
 
-	free(buffer);
+    free(buffer);
 
-	return 0;
+    return 0;
 }
 
 /*Given a record descriptor, read the record identified by the given rid.*/
 RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, void *data)
 {
-	void * buffer = malloc(PAGE_SIZE);
+    void * buffer = malloc(PAGE_SIZE);
 
-	if(fileHandle.readPage(rid.pageNum, buffer) != 0) //not exisit this record
-	{
-		free(buffer);
-		return -1;
-	}
+    if(fileHandle.readPage(rid.pageNum, buffer) != 0) //not exist this record
+    {
+        free(buffer);
+        return -1;
+    }
 
-	unsigned totalNumberOfSlots;
-	totalNumberOfSlots = * (int *)((char *)buffer + PAGE_SIZE - 2* sizeof(int));
+    unsigned totalNumberOfSlots;
+    totalNumberOfSlots = * (int *)((char *)buffer + PAGE_SIZE - 2* sizeof(int));
 
-	if(totalNumberOfSlots >= rid.slotNum)
-	{
-		int offset;
+    if(totalNumberOfSlots >= rid.slotNum)
+    {
+        int offset;
 
-		SlotCell sc;
-		sc.offset = * (int *)((char *)buffer + PAGE_SIZE - 2*sizeof(int) - rid.slotNum * 2 * sizeof(int) );
-		offset = ((*(int *)((char*)buffer + sc.offset) )+1)*sizeof(int) + sc.offset;
+        SlotCell sc;
+        sc.offset = * (int *)((char *)buffer + PAGE_SIZE - 2*sizeof(int) - rid.slotNum * 2 * sizeof(int) );
+        offset = ((*(int *)((char*)buffer + sc.offset) )+1)*sizeof(int) + sc.offset;
 
-		if(offset == -1)  //this record has been deleted;
-		{
-			free(buffer);
-			return -1;
-		}
+        if(offset == -1)  //this record has been deleted;
+        {
+            free(buffer);
+            return -1;
+        }
 
-		int dataLength = getDataLength(recordDescriptor, (char*)buffer + offset);
+        int dataLength = getDataLength(recordDescriptor, (char*)buffer + offset);
 
-//		int recordPointer;
-//		recordPointer = *(int *)( (char*)buffer + offset +sizeof(int) );
-//		memcpy(data,  &recordPointer, dataLength);
-		memcpy(data,  (char*)buffer + offset, dataLength);
+//      int recordPointer;
+//      recordPointer = *(int *)( (char*)buffer + offset +sizeof(int) );
+//      memcpy(data,  &recordPointer, dataLength);
+        memcpy(data,  (char*)buffer + offset, dataLength);
 
-		//memcpy(data,  (char*)buffer + offset, dataLength);
-		free(buffer);
-		return 0;
-	}
+        //memcpy(data,  (char*)buffer + offset, dataLength);
+        free(buffer);
+        return 0;
+    }
 
-	free(buffer);
-	return -1;
+    free(buffer);
+    return -1;
 }
 
 int RecordBasedFileManager::getDataLength(const vector<Attribute> &recordDescriptor, const void *data)
 {
-	int dataLength = 0;
+    int dataLength = 0;
 
-	for(int i = 0; i < recordDescriptor.size(); i ++)
-	{
-		//check each element type: AttrType
-		switch (recordDescriptor[i].type) {
+    //TODO: modify case:
+    for(int i = 0; i < recordDescriptor.size(); i ++)
+    {
+        //check each element type: AttrType
+        switch (recordDescriptor[i].type) {
 
-		case 0:
-				dataLength+=sizeof(int);
-				break;
+        case 0:
+                dataLength+=sizeof(int);
+                break;
 
-		case 1:
-				dataLength+=sizeof(int);
-				break;
+        case 1:
+                dataLength+=sizeof(int);
+                break;
 
-		case 2:
-				int * aa;
-				aa = (int *)((char *)data+dataLength);
-				int length = *aa;
+        case 2:
+                int * aa;
+                aa = (int *)((char *)data+dataLength);
+                int length = *aa;
 
-				dataLength+=length+sizeof(int);
-				break;
+                dataLength+=length+sizeof(int);
+                break;
 
-		}//end of switch
+        }//end of switch
 
-	}//end of for each
-	return dataLength;
+    }//end of for each
+    return dataLength;
 }
 
 int RecordBasedFileManager::getNumberOfRecordElements(const vector<Attribute> &recordDescriptor, const void *data)
 {
-	int numberOfRecordElements = 0;
-			for(int i = 0; i < recordDescriptor.size(); i ++)
-			{
-				//check each element type: AttrType
-				switch (recordDescriptor[i].type) {
+    int numberOfRecordElements = 0;
+    //TODO: modify case:
+    for(int i = 0; i < recordDescriptor.size(); i ++)
+    {
+        //check each element type: AttrType
+        switch (recordDescriptor[i].type) {
 
-				case 0:
-						numberOfRecordElements++;
-						break;
+        case 0:
+                numberOfRecordElements++;
+                break;
 
-				case 1:
-						numberOfRecordElements++;
-						break;
+        case 1:
+                numberOfRecordElements++;
+                break;
 
-				case 2:
-						numberOfRecordElements+=2;
-						break;
-				}//end of switch
-			}//end of for each
-			return numberOfRecordElements;
+        case 2:
+                numberOfRecordElements+=2;
+                break;
+        }//end of switch
+    }//end of for each
+    return numberOfRecordElements;
 }
 
 RC RecordBasedFileManager::recordHeaderMaker(const vector<Attribute> &recordDescriptor, const void *data, void *recordHeader)
 {
-		int numberOfRecordElements = getNumberOfRecordElements(recordDescriptor, data);
-		int sizeOfRecordHeader = (1 + numberOfRecordElements) * sizeof(int);
+        int numberOfRecordElements = getNumberOfRecordElements(recordDescriptor, data);
+        int sizeOfRecordHeader = (1 + numberOfRecordElements) * sizeof(int);
 
-		memcpy(recordHeader, &numberOfRecordElements, sizeof(int));
+        memcpy(recordHeader, &numberOfRecordElements, sizeof(int));
 
-		int offset = 0;
-		int attrPointer;
-		int j = 1;
+        int offset = 0;
+        int attrPointer;
+        int j = 1;
 
-		for(int i = 0; i < recordDescriptor.size(); i ++)
-			{
-				cout<< i<<endl;
-				//check each element type: AttrType
-				switch (recordDescriptor[i].type) {
+        //TODO: modify case:
+        for(int i = 0; i < recordDescriptor.size(); i ++)
+            {
+                cout<< i<<endl;
+                //check each element type: AttrType
+                switch (recordDescriptor[i].type) {
 
-				case 0:
-						attrPointer = sizeOfRecordHeader + offset;
-						memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
-						offset+=sizeof(int);
-						j++;
-						break;
+                case 0:
+                        attrPointer = sizeOfRecordHeader + offset;
+                        memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
+                        offset+=sizeof(int);
+                        j++;
+                        break;
 
-				case 1:
-						attrPointer = sizeOfRecordHeader+ offset;
-						memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
-						offset+=sizeof(int);
-						j++;
-						break;
+                case 1:
+                        attrPointer = sizeOfRecordHeader+ offset;
+                        memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
+                        offset+=sizeof(int);
+                        j++;
+                        break;
 
-				case 2:
-					    int * aa;
-						aa = (int *)((char *)data+offset);
-						int length = *aa;
+                case 2:
+                        int * aa;
+                        aa = (int *)((char *)data+offset);
+                        int length = *aa;
 
-						attrPointer = sizeOfRecordHeader + offset;
-						memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
-					    offset+=sizeof(int);
-						j++;
+                        attrPointer = sizeOfRecordHeader + offset;
+                        memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
+                        offset+=sizeof(int);
+                        j++;
 
-						attrPointer = sizeOfRecordHeader + offset;
-						memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
-						offset+=length;
-						j++;
-						break;
+                        attrPointer = sizeOfRecordHeader + offset;
+                        memcpy((char * )recordHeader + j*sizeof(int), &attrPointer, sizeof(int));
+                        offset+=length;
+                        j++;
+                        break;
 
-				}//end of switch
+                }//end of switch
 
-			}//end of for each
+            }//end of for each
 
-		cout<< "here3" << endl;
+        cout<< "here3" << endl;
 
-	return 0;
+    return 0;
 }
 
 /* This is a utility method that will be mainly used for debugging/testing.
@@ -354,75 +357,94 @@ RC RecordBasedFileManager::recordHeaderMaker(const vector<Attribute> &recordDesc
  * */
 RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor, const void *data)
 {
-	int offset = 0;
+    int offset = 0;
 
-	int * aa;
-	float * bb;
-	char * cc;
+    int * aa;
+    float * bb;
+    char * cc;
 
-	for(int i = 0; i < recordDescriptor.size(); i ++)
-	{
-		//check each element type: AttrType
-		switch (recordDescriptor[i].type) {
+    //TODO: modify case:
+    for(int i = 0; i < recordDescriptor.size(); i ++)
+    {
+        //check each element type: AttrType
+        switch (recordDescriptor[i].type) {
 
-		case 0:
-				aa = (int * )((char *)data+offset);
-				cout << *aa<<endl;
-				offset+=sizeof(int);
-				break;
+        case 0:
+                aa = (int * )((char *)data+offset);
+                cout << *aa<<endl;
+                offset+=sizeof(int);
+                break;
 
-		case 1:
-				bb = (float * )((char *)data+offset);
-				cout <<  *bb <<endl;
-				offset+=sizeof(int);
-				break;
+        case 1:
+                bb = (float * )((char *)data+offset);
+                cout <<  *bb <<endl;
+                offset+=sizeof(int);
+                break;
 
-		case 2:
-				aa = (int *)((char *)data+offset);
-				int length = *aa;
+        case 2:
+                aa = (int *)((char *)data+offset);
+                int length = *aa;
 
-				cout << *aa <<endl;
+                cout << *aa <<endl;
 
-				cc = ((char *)data+offset+sizeof(int));
-				for(int j = 0; j < length; j++)
-				{
-					cout << *cc;
-					cc++;
-				}
-				cout << endl;
+                cc = ((char *)data+offset+sizeof(int));
+                for(int j = 0; j < length; j++)
+                {
+                    cout << *cc;
+                    cc++;
+                }
+                cout << endl;
 
-				offset+=length+sizeof(int);
-				break;
+                offset+=length+sizeof(int);
+                break;
 
 
-		}//end of switch
+        }//end of switch
 
-	}//end of for each
+    }//end of for each
 
-	cout << endl;
+    cout << endl;
     return 0;
 }
 
 /* Delete all records in the file.*/
 RC RecordBasedFileManager::deleteRecords(FileHandle &fileHandle)
 {
-	//getNumberOfPages
+    //getNumberOfPages
+    int numberOfPages = fileHandle.getNumberOfPages();
 
-	//remove everything in these pages
-	return -1;
+    //remove everything in these pages
+    void * pageBuffer = malloc(PAGE_SIZE);
+    const int zero = 0;
+    const int offset_EndOfPage = PAGE_SIZE - sizeof(int);
+    const int offset_SlotNumber = PAGE_SIZE - sizeof(int)*2;
+
+    for(int i = 0; i < numberOfPages; i++){
+        fileHandle.readPage(i, pageBuffer);
+
+        //set the slot number to zero
+        memcpy((void*)pageBuffer + offset_SlotNumber, &zero , sizeof(int));
+
+        //set the free space pointer to the beginning of page
+        memcpy((void*)pageBuffer + offset_EndOfPage, &zero , sizeof(int));
+
+        fileHandle.writePage(i, pageBuffer);
+    }
+    free(pageBuffer);
+    return 0;
 }
 
 /* Given a record descriptor, delete the record identified by the given rid.*/
 RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid)
 {
-	//read this page (rid.pageNum) into buffer
+    //read this page (rid.pageNum) into buffer
 
-	//get dataLength by slotcell.length, slotNum = rid.slotNum
+    //get dataLength by slotcell.length, slotNum = rid.slotNum
 
-	//delete this part ->NULL?
+    //delete this part ->NULL?
 
-	//write this page back to disk
-	return -1;
+    //write this page back to disk
+    return -1;
 }
 
 /* Given a record descriptor, update the record identified by the given rid with the passed data.
@@ -434,43 +456,43 @@ RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Att
 //Assume the rid does not change after update
 RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const void *data, const RID &rid)
 {
-	//get dataLength by slotcell.length, slotNum = rid.slotNum
+    //get dataLength by slotcell.length, slotNum = rid.slotNum
 
-	//use arguments: recordDescriptor, data, calculate updated data's newDataLength
+    //use arguments: recordDescriptor, data, calculate updated data's newDataLength
 
-	//check if newDataLength <= dataLength
+    //check if newDataLength <= dataLength
 
-	//delete this record
+    //delete this record
 
-	//write this record in the same "offset" position
+    //write this record in the same "offset" position
 
-	//write back this page into disk
+    //write back this page into disk
 
-	return -1;
+    return -1;
 }
 
 /* Given a record descriptor, read a specific attribute of a record identified by a given rid.*/
 RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, const string attributeName, void *data)
 {
-	//get the field/attribute position from recordDescriptor and attributeName
+    //get the field/attribute position from recordDescriptor and attributeName
 
-	//similar to readRecord method, but the last few steps, don't read the whole record, but read specific field
-	return -1;
+    //similar to readRecord method, but the last few steps, don't read the whole record, but read specific field
+    return -1;
 }
 
 /* Given a record descriptor, reorganize a page, i.e., push the free space towards the end of the page.*/
 RC RecordBasedFileManager::reorganizePage(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const unsigned pageNumber)
 {
-	//check if this pageNumber exist or not(getNumberOfPages)
+    //check if this pageNumber exist or not(getNumberOfPages)
 
-	//if exists
+    //if exists
 
-	//read this page into RAM buffer
+    //read this page into RAM buffer
 
-	//allocate another buffer2 in RAM
+    //allocate another buffer2 in RAM
 
-	//put buffer's record into buffer2 one by one???
-	return -1;
+    //put buffer's record into buffer2 one by one???
+    return -1;
 }
 
 /* Given a record descriptor, scan a file, i.e., sequentially read all the entries in the file.
@@ -483,26 +505,26 @@ RC RecordBasedFileManager::reorganizePage(FileHandle &fileHandle, const vector<A
  * Please take a look at the test cases for more information on how to use this method.*/
 // scan returns an iterator to allow the caller to go through the results one by one.
 RC RecordBasedFileManager::scan(FileHandle &fileHandle,
-	      const vector<Attribute> &recordDescriptor,
-	      const string &conditionAttribute,
-	      const CompOp compOp,                  // comparision type such as "<" and "="
-	      const void *value,                    // used in the comparison
-	      const vector<string> &attributeNames, // a list of projected attributes
-	      RBFM_ScanIterator &rbfm_ScanIterator)
+          const vector<Attribute> &recordDescriptor,
+          const string &conditionAttribute,
+          const CompOp compOp,                  // comparision type such as "<" and "="
+          const void *value,                    // used in the comparison
+          const vector<string> &attributeNames, // a list of projected attributes
+          RBFM_ScanIterator &rbfm_ScanIterator)
 {
-	//create vector<unsigned> ridList in the rbfm_ScanIterator object
+    //create vector<unsigned> ridList in the rbfm_ScanIterator object
 
-	//for each page i
+    //for each page i
 
-	//read into RAM buffer
+    //read into RAM buffer
 
-	//for each record in this page *data
+    //for each record in this page *data
 
-	//check if it satisfy the condition
+    //check if it satisfy the condition
 
-	//if satisfy, put its rid in the ridList
+    //if satisfy, put its rid in the ridList
 
-	return -1;
+    return -1;
 }
 
 /* Given a record descriptor, reorganize the file which causes reorganization
@@ -511,17 +533,17 @@ RC RecordBasedFileManager::scan(FileHandle &fileHandle,
 // Extra credit for part 2 of the project, please ignore for part 1 of the project
 RC RecordBasedFileManager::reorganizeFile(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor)
 {
-	//for each page i in this file
+    //for each page i in this file
 
-	//reorganizePage()
+    //reorganizePage()
 
-	//check if slot directory, if there is a tomestone
+    //check if slot directory, if there is a tomestone
 
-	//delete this tomestone slot cell
+    //delete this tomestone slot cell
 
-	//update slot directory
+    //update slot directory
 
-	return -1;
+    return -1;
 }
 
 
