@@ -14,6 +14,7 @@ using namespace std;
 
 const int success = 0;
 
+const bool DEBUG_SIGMA = true;
 
 // Check if a file exists
 bool FileExists(string fileName)
@@ -563,6 +564,10 @@ int RBFTest_8(RecordBasedFileManager *rbfm) {
         free(returnedData);
         return -1;
     }
+
+    //for testing deleteRecords
+    if(DEBUG_SIGMA)
+        rc = rbfm->deleteRecords(fileHandle);
     
     // Close the file "test_3"
     rc = rbfm->closeFile(fileHandle);
@@ -718,7 +723,7 @@ int RBFTest_10(RecordBasedFileManager *rbfm, vector<RID> &rids, vector<int> &siz
 
 int main()
 {
-	// To test the functionality of the paged file manager
+    // To test the functionality of the paged file manager
     PagedFileManager *pfm = PagedFileManager::instance();
     
     // To test the functionality of the record-based file manager 
@@ -731,19 +736,19 @@ int main()
     remove("test_3");
     remove("test_4");
     
-    RBFTest_1(pfm);
-    RBFTest_2(pfm);
-    RBFTest_3(pfm);
-    RBFTest_4(pfm);
-    RBFTest_5(pfm);
-    RBFTest_6(pfm);
-    RBFTest_7(pfm);
+//    RBFTest_1(pfm);
+//    RBFTest_2(pfm);
+//    RBFTest_3(pfm);
+//    RBFTest_4(pfm);
+//    RBFTest_5(pfm);
+//    RBFTest_6(pfm);
+//    RBFTest_7(pfm);
     RBFTest_8(rbfm);
-    
-    vector<RID> rids;
-    vector<int> sizes;
-    RBFTest_9(rbfm, rids, sizes);
-    RBFTest_10(rbfm, rids, sizes);
+//
+//    vector<RID> rids;
+//    vector<int> sizes;
+//    RBFTest_9(rbfm, rids, sizes);
+//    RBFTest_10(rbfm, rids, sizes);
      
     return 0;
 }
