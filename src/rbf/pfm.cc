@@ -1,6 +1,4 @@
 #include "pfm.h"
-#include <stdio.h>
-
 
 
 PagedFileManager* PagedFileManager::_pf_manager = 0;
@@ -50,12 +48,18 @@ RC PagedFileManager::createFile(const char *fileName)
 RC PagedFileManager::destroyFile(const char *fileName)
 {
 	//check if a file named "fileName" exits
-	if(fopen(fileName, "rb") == NULL) //not exits
-		return -1;
+//	if(fopen(fileName, "rb") == NULL) //not exits
+//		return -1;
+    ifstream f(fileName);
+    if (!f.good()) {
+          f.close();
+          return -1;
+      }else
+          f.close();
 
 	//delete it and check
-	if( remove(fileName) != 0) //delete failed
-		return -1;
+	if( remove(fileName) != 0)
+		return -1; //delete failed
 
 	return 0;
 }
@@ -82,6 +86,8 @@ RC PagedFileManager::openFile(const char *fileName, FileHandle &fileHandle)
 	//check if a file named "fileName" exits
 	if(pFile == NULL) //not exits
 		return -1;
+
+	fclose(pFile);
 
 	//check if the fileHandle is already a handle for an open file
 	if(fileHandle.hasFile())
@@ -177,7 +183,6 @@ RC FileHandle::appendPage(const void *data)
 
 	if(fwrite(data, PAGE_SIZE, 1, hFile) != 1)
 		return -1;
-
 	return 0;
 
 }

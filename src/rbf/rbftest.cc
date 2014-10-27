@@ -14,6 +14,7 @@ using namespace std;
 
 const int success = 0;
 
+const bool DEBUG_SIGMA = false;
 
 // Check if a file exists
 bool FileExists(string fileName)
@@ -563,6 +564,14 @@ int RBFTest_8(RecordBasedFileManager *rbfm) {
         free(returnedData);
         return -1;
     }
+
+//    //=====for testing deleteRecords======
+//    if(DEBUG_SIGMA){
+//        rid.pageNum=0;
+//        rid.slotNum=1;
+//        rc = rbfm->deleteRecord(fileHandle,recordDescriptor,rid);
+//        rc = rbfm->deleteRecords(fileHandle);
+//    }
     
     // Close the file "test_3"
     rc = rbfm->closeFile(fileHandle);
@@ -639,6 +648,17 @@ int RBFTest_9(RecordBasedFileManager *rbfm, vector<RID> &rids, vector<int> &size
         rids.push_back(rid);
         sizes.push_back(size);        
     }
+
+
+    //=====for testing deleteRecords======
+    if(DEBUG_SIGMA){
+        rid.pageNum=0;
+        rid.slotNum=2;
+        rc = rbfm->deleteRecord(fileHandle,recordDescriptor,rid);
+        rc = rbfm->deleteRecords(fileHandle);
+    }
+
+
     // Close the file "test_4"
     rc = rbfm->closeFile(fileHandle);
     assert(rc == success);
@@ -739,7 +759,7 @@ int main()
     RBFTest_6(pfm);
     RBFTest_7(pfm);
     RBFTest_8(rbfm);
-    
+
     vector<RID> rids;
     vector<int> sizes;
     RBFTest_9(rbfm, rids, sizes);

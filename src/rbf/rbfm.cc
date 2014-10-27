@@ -81,9 +81,10 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 	//read this page into buffer and
 	//organize this page: insert data, rewrite free space pointer, increase slot number, put slotcell inside
 
-	if(fileHandle.getNumberOfPages() > 0){
+	int pageCount = fileHandle.getNumberOfPages();
+	if(pageCount > 0){
 		//find a page i has enough free space
-		for(int i = 0; i < fileHandle.getNumberOfPages(); i++){
+		for(int i = 0; i < pageCount; i++){
 			//read into buffer
 			if(fileHandle.readPage(i, buffer)!=0)
 			{
@@ -100,11 +101,12 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
 			int freeSpace = PAGE_SIZE - freeSpacePointer - 2 * sizeof(int) - 2 * totalNumberOfSlots * sizeof(int);
 
-			//enough free space
+			//check if free space enough
 			if(freeSpace >= (dataLength + 2 * sizeof(int) + sizeOfRecordHeader))
 			{
 				//insert header
-				void * recordHeader=malloc(PAGE_SIZE) ;
+//				void * recordHeader=malloc(PAGE_SIZE) ;
+			    void * recordHeader=malloc(sizeOfRecordHeader) ;
 				recordHeaderMaker(recordDescriptor, data, recordHeader);
 				memcpy((char *)buffer +freeSpacePointer, recordHeader, sizeOfRecordHeader);
 				//insert data
@@ -117,7 +119,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
 				//put slot cell into
 				SlotCell sc;
-				sc.length = dataLength;
+				sc.length = sizeOfRecordHeader + dataLength;
 			    sc.offset = freeSpacePointer;
 				memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*2*sizeof(int), &sc, 2*sizeof(int));
 
@@ -152,7 +154,8 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
 	//insert record header
 
-	void * recordHeader=malloc(PAGE_SIZE) ;
+//	void * recordHeader=malloc(PAGE_SIZE) ;
+	void * recordHeader=malloc(sizeOfRecordHeader) ;
 	recordHeaderMaker(recordDescriptor, data, recordHeader);
 	memcpy((char *)buffer, recordHeader, sizeOfRecordHeader);
 
@@ -168,9 +171,9 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 	memcpy((char *)buffer + PAGE_SIZE -2*sizeof(int), &totalNumberOfSlots, sizeof(int));
 
 	SlotCell sc;
-	sc.length = dataLength;
+	sc.length = sizeOfRecordHeader + dataLength;
 	sc.offset = 0;
-	memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*2*sizeof(int), &sc, 2*sizeof(int));
+	memcpy((char *)buffer + PAGE_SIZE - 2*sizeof(int) - totalNumberOfSlots*sizeof(SlotCell), &sc, sizeof(SlotCell));
 
 	//write "dirty"new  page append to file back to disk
 	if(fileHandle.appendPage(buffer) != 0 )
@@ -192,7 +195,7 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
 {
 	void * buffer = malloc(PAGE_SIZE);
 
-	if(fileHandle.readPage(rid.pageNum, buffer) != 0) //not exisit this record
+	if(fileHandle.readPage(rid.pageNum, buffer) != 0) //not exist this record
 	{
 		free(buffer);
 		return -1;
@@ -235,12 +238,13 @@ int RecordBasedFileManager::getDataLength(const vector<Attribute> &recordDescrip
 {
 	int dataLength = 0;
 
+	//TODO: modify case:
 	for(int i = 0; i < recordDescriptor.size(); i ++)
 	{
 		//check each element type: AttrType
 		switch (recordDescriptor[i].type) {
 
-		case 0:
+		case TypeInt:
 				dataLength+=sizeof(int);
 				break;
 
@@ -265,25 +269,26 @@ int RecordBasedFileManager::getDataLength(const vector<Attribute> &recordDescrip
 int RecordBasedFileManager::getNumberOfRecordElements(const vector<Attribute> &recordDescriptor, const void *data)
 {
 	int numberOfRecordElements = 0;
-			for(int i = 0; i < recordDescriptor.size(); i ++)
-			{
-				//check each element type: AttrType
-				switch (recordDescriptor[i].type) {
+	//TODO: modify case:
+    for(int i = 0; i < recordDescriptor.size(); i ++)
+    {
+        //check each element type: AttrType
+        switch (recordDescriptor[i].type) {
 
-				case 0:
-						numberOfRecordElements++;
-						break;
+        case 0:
+                numberOfRecordElements++;
+                break;
 
-				case 1:
-						numberOfRecordElements++;
-						break;
+        case 1:
+                numberOfRecordElements++;
+                break;
 
-				case 2:
-						numberOfRecordElements+=2;
-						break;
-				}//end of switch
-			}//end of for each
-			return numberOfRecordElements;
+        case 2:
+                numberOfRecordElements+=2;
+                break;
+        }//end of switch
+    }//end of for each
+    return numberOfRecordElements;
 }
 
 RC RecordBasedFileManager::recordHeaderMaker(const vector<Attribute> &recordDescriptor, const void *data, void *recordHeader)
@@ -297,6 +302,7 @@ RC RecordBasedFileManager::recordHeaderMaker(const vector<Attribute> &recordDesc
 		int attrPointer;
 		int j = 1;
 
+		//TODO: modify case:
 		for(int i = 0; i < recordDescriptor.size(); i ++)
 			{
 				cout<< i<<endl;
@@ -360,6 +366,7 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
 	float * bb;
 	char * cc;
 
+	//TODO: modify case:
 	for(int i = 0; i < recordDescriptor.size(); i ++)
 	{
 		//check each element type: AttrType
@@ -407,22 +414,56 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
 RC RecordBasedFileManager::deleteRecords(FileHandle &fileHandle)
 {
 	//getNumberOfPages
+    int numberOfPages = fileHandle.getNumberOfPages();
 
 	//remove everything in these pages
-	return -1;
+    void * pageBuffer = malloc(PAGE_SIZE);
+    const int zero = 0;
+    const int offset_EndOfPage = PAGE_SIZE - sizeof(int);
+    const int offset_SlotsCount = PAGE_SIZE - sizeof(int)*2;
+
+    //TODO: set all slot offset to -1
+    for(int i = 0; i < numberOfPages; i++){
+        fileHandle.readPage(i, pageBuffer);
+
+        //set the slot number to zero
+        memcpy((void*)pageBuffer + offset_SlotsCount, &zero , sizeof(int));
+
+        //set the free space pointer to the beginning of page
+        memcpy((void*)pageBuffer + offset_EndOfPage, &zero , sizeof(int));
+
+        fileHandle.writePage(i, pageBuffer);
+    }
+    free(pageBuffer);
+	return 0;
 }
 
 /* Given a record descriptor, delete the record identified by the given rid.*/
 RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid)
 {
 	//read this page (rid.pageNum) into buffer
+    void * pageBuffer = malloc(PAGE_SIZE);
+    const int offset_SlotCell = PAGE_SIZE - sizeof(int)*2 - sizeof(SlotCell)*rid.slotNum;
+    unsigned totalNumberOfSlots = *(int*)((char *)pageBuffer + PAGE_SIZE - sizeof(int)*2);
 
-	//get dataLength by slotcell.length, slotNum = rid.slotNum
+    //readPage fail or slotNum out of range
+    if(fileHandle.readPage(rid.pageNum, pageBuffer) != 0 || totalNumberOfSlots < rid.slotNum)
+    {
+        free(pageBuffer);
+        return -1;
+    }
+
+//  //get dataLength by slotcell.length, slotNum = rid.slotNum
 
 	//delete this part ->NULL?
+    const int negativeOne = -1;
+    memcpy((void*)pageBuffer + offset_SlotCell, &negativeOne , sizeof(int));
 
 	//write this page back to disk
-	return -1;
+    fileHandle.writePage(rid.pageNum, pageBuffer);
+
+    free(pageBuffer);
+	return 0;
 }
 
 /* Given a record descriptor, update the record identified by the given rid with the passed data.

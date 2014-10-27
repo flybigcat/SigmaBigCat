@@ -2,6 +2,7 @@
 #define _rbfm_h_
 
 #include <string>
+#include <string.h>
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
