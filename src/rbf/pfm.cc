@@ -183,7 +183,6 @@ RC FileHandle::appendPage(const void *data)
 
 	if(fwrite(data, PAGE_SIZE, 1, hFile) != 1)
 		return -1;
-
 	return 0;
 
 }
