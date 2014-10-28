@@ -427,10 +427,10 @@ RC RecordBasedFileManager::deleteRecords(FileHandle &fileHandle)
         fileHandle.readPage(i, pageBuffer);
 
         //set the slot number to zero
-        memcpy((void*)pageBuffer + offset_SlotsCount, &zero , sizeof(int));
+        memcpy((char*)pageBuffer + offset_SlotsCount, &zero , sizeof(int));
 
         //set the free space pointer to the beginning of page
-        memcpy((void*)pageBuffer + offset_EndOfPage, &zero , sizeof(int));
+        memcpy((char*)pageBuffer + offset_EndOfPage, &zero , sizeof(int));
 
         fileHandle.writePage(i, pageBuffer);
     }
@@ -457,7 +457,7 @@ RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const vector<Att
 
 	//delete this part ->NULL?
     const int negativeOne = -1;
-    memcpy((void*)pageBuffer + offset_SlotCell, &negativeOne , sizeof(int));
+    memcpy((char*)pageBuffer + offset_SlotCell, &negativeOne , sizeof(int));
 
 	//write this page back to disk
     fileHandle.writePage(rid.pageNum, pageBuffer);
@@ -531,17 +531,14 @@ RC RecordBasedFileManager::scan(FileHandle &fileHandle,
 	      const vector<string> &attributeNames, // a list of projected attributes
 	      RBFM_ScanIterator &rbfm_ScanIterator)
 {
+    /*
 	//create vector<unsigned> ridList in the rbfm_ScanIterator object
-
 	//for each page i
-
 	//read into RAM buffer
-
 	//for each record in this page *data
-
 	//check if it satisfy the condition
-
 	//if satisfy, put its rid in the ridList
+    */
 
 	return -1;
 }
