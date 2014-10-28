@@ -23,6 +23,9 @@ typedef struct
 // Attribute
 typedef enum { TypeInt = 0, TypeReal, TypeVarChar } AttrType;
 
+// RecordStatus
+typedef enum { R_Del = -1, R_Tombstone = -2  } RecordStatus;
+
 typedef unsigned AttrLength;
 
 struct Attribute {
@@ -55,7 +58,7 @@ The scan iterator is NOT required to be implemented for part 1 of the project
 
 # define RBFM_EOF (-1)  // end of a scan operator
 
-// RBFM_ScanIterator is an iteratr to go through records
+// RBFM_ScanIterator is an iterator to go through records
 // The way to use it is like the following:
 //  RBFM_ScanIterator rbfmScanIterator;
 //  rbfm.open(..., rbfmScanIterator);
@@ -69,6 +72,11 @@ class RBFM_ScanIterator {
 public:
   RBFM_ScanIterator() {};
   ~RBFM_ScanIterator() {};
+
+  int slotNum = -1; //start from -1
+  int currentPage = 0;
+  int maxPage = 0;
+
 
   // "data" follows the same format as RecordBasedFileManager::insertRecord()
   RC getNextRecord(RID &rid, void *data) { return RBFM_EOF; };
